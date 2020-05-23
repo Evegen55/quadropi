@@ -4,6 +4,8 @@ import time
 from PySide2 import QtCore, QtWidgets, QtGui
 import pigpio
 
+import cv2 as cv
+
 '''
 Created on May 21, 2020
 @author: Evgenii_Lartcev
@@ -14,6 +16,12 @@ Notes:
 and the frequency was 50Hz (period of 20ms). 
 A pulse of 1ms corresponds to zero throttle, and a pulse of 2ms to maximum throttle. 
 In pigpio library: param 'pulsewidth': The servo pulsewidth in microseconds. 0 switches pulses off.
+
+- if you get ImportError: /usr/lib/x86_64-linux-gnu/libQt5OpenGL.so.5: undefined symbol: _Z12qTriangulateRK11QVectorPathRK10QTransformd
+that means you are using an OpenCV version built with your system's Qt 
+while your PySide2 (or PyQt5) installation comes with it's own Qt dependencies and they are clashing 
+because you are trying to load two different versions of Qt with the same namespace in the same memory space.
+Either install opencv-python through pip or use your distribution provided PyQt5.
 '''
 
 
@@ -51,6 +59,7 @@ class MainWidget(QtWidgets.QWidget):
         self.escSpeedControlSlider.valueChanged.connect(self.manageEscSpeed)
 
         self.debugLog = QtWidgets.QTextEdit("Connection to pigpio daemon on " + self.piHost + " established, drive set to stop.")
+        self.debugLog.append("OpenCV version is " + cv.__version__)
         self.debugLog.setReadOnly(True)
         self.debugLog.setMaximumHeight(200)
 
@@ -91,7 +100,7 @@ class MainWidget(QtWidgets.QWidget):
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
                     time.sleep(1)
                     print("ESC has been successfully calibrated.")
-                    self.debugLog.setText("ESC has been successfully calibrated. Restart program to run drive.")
+                    self.debugLog.append("ESC has been successfully calibrated. Restart program to run drive.")
         else:
             self.debugLog.append("Please stop the drive motion.")
 
