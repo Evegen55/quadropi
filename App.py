@@ -44,21 +44,23 @@ class MainWidget(QtWidgets.QWidget):
         self.maxPulseWidth = 2000
         self.minPulseWidth = 700
 
-        self.escStopButton = QtWidgets.QPushButton("Stop drive and ESC.")
-        self.escStopButton.setMinimumWidth(150)
-        self.escStopButton.clicked.connect(self.stop)
-        self.driveStopped = False
-
         self.escCalibrationButton = QtWidgets.QPushButton("Calibrate ESC")
         self.escCalibrationButton.clicked.connect(self.calibrate)
 
         self.escSpeedControlSlider = QtWidgets.QSlider()
         self.escSpeedControlSlider.setOrientation(QtCore.Qt.Vertical)
-        self.escSpeedControlSlider.setMinimum(self.minPulseWidth) # should be 0
-        self.escSpeedControlSlider.setMaximum(self.maxPulseWidth) # should be 100
+        self.escSpeedControlSlider.setMinimum(self.minPulseWidth)  # should be 0
+        self.escSpeedControlSlider.setMaximum(self.maxPulseWidth)  # should be 100
         self.escSpeedControlSlider.valueChanged.connect(self.manageEscSpeed)
 
-        self.debugLog = QtWidgets.QTextEdit("Connection to pigpio daemon on " + self.piHost + " established, drive set to stop.")
+        self.driveFullyStopped = False
+        self.escStopButton = QtWidgets.QPushButton("Stop drive forever.")
+        self.escStopButton.setMinimumWidth(150)
+        self.escStopButton.setStyleSheet("background-color: rgba(245, 65, 19, 1);")
+        self.escStopButton.clicked.connect(self.stop_and_release)
+
+        self.debugLog = QtWidgets.QTextEdit(
+            "Connection to pigpio daemon on " + self.piHost + " established, drive set to stop.")
         self.debugLog.append("OpenCV version is " + cv.__version__)
         self.debugLog.setReadOnly(True)
         self.debugLog.setMaximumHeight(200)
@@ -67,8 +69,8 @@ class MainWidget(QtWidgets.QWidget):
 
         self.esc_layout = QtWidgets.QVBoxLayout()
         self.esc_layout.addWidget(self.escSpeedControlSlider)
-        self.esc_layout.addWidget(self.escStopButton)
         self.esc_layout.addWidget(self.escCalibrationButton)
+        self.esc_layout.addWidget(self.escStopButton)
 
         self.debug_layout = QtWidgets.QVBoxLayout()
         self.debug_layout.setAlignment(QtCore.Qt.AlignBottom)
@@ -81,7 +83,8 @@ class MainWidget(QtWidgets.QWidget):
 
     # This is the auto calibration procedure of a normal ESC
     def calibrate(self):
-        if self.driveStopped:
+        if not self.driveFullyStopped:
+            self.debugLog.append("Stopping drive...")
             self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
             print("Disconnect the battery and press Enter")
             inp = input()
@@ -102,25 +105,27 @@ class MainWidget(QtWidgets.QWidget):
                     print("ESC has been successfully calibrated.")
                     self.debugLog.append("ESC has been successfully calibrated. Restart program to run drive.")
         else:
-            self.debugLog.append("Please stop the drive motion.")
+            self.debugLog.append("ESC and drive has been fully stopped already. Restart available only with program.")
 
     # This will stop every action your Pi is performing for ESC or allow run for drive.
-    def stop(self):
-        if not self.driveStopped:
+    def stop_and_release(self):
+        if not self.driveFullyStopped:
             self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
             self.pi.stop()
             self.escStopButton.setText("ESC stopped.")
-            self.debugLog.append("ESC and drive has been fully stopped.")
-            self.driveStopped = True
+            self.debugLog.append("ESC and drive has been fully stopped. Restart available only with program.")
+            self.driveFullyStopped = True
+            self.escSpeedControlSlider.setValue(self.minPulseWidth)
         else:
-            self.debugLog.append(" and drive has been fully stopped already.")
+            self.debugLog.append("ESC and drive has been fully stopped already. Restart available only with program.")
 
     def manageEscSpeed(self):
         # self.debugLog.setText(str(self.escSpeedControlSlider.value())) #debug only
-        if not self.driveStopped:
+        if not self.driveFullyStopped:
             self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.escSpeedControlSlider.value())
         else:
             self.debugLog.append("ESC has been fully stopped already.")
+            self.escSpeedControlSlider.setValue(self.minPulseWidth)
 
 
 if __name__ == "__main__":
