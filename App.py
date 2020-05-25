@@ -103,7 +103,7 @@ class MainWidget(QtWidgets.QWidget):
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
                     time.sleep(1)
                     print("ESC has been successfully calibrated.")
-                    self.debugLog.append("ESC has been successfully calibrated. Restart program to run drive.")
+                    self.debugLog.append("ESC has been successfully calibrated. Use slider to run drive.")
         else:
             self.debugLog.append("ESC and drive has been fully stopped already. Restart available only with program.")
 
