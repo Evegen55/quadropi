@@ -59,8 +59,8 @@ class MainWidget(QtWidgets.QWidget):
         self.escStopButton.setStyleSheet("background-color: rgba(245, 65, 19, 1);")
         self.escStopButton.clicked.connect(self.stop_and_release)
 
-        self.debugLog = QtWidgets.QTextEdit(
-            "Connection to pigpio daemon on " + self.piHost + " established, drive set to stop.")
+        self.debugLog = QtWidgets.QTextEdit("Connection to pigpio daemon on " + self.piHost +
+                                            " established, drive set to stop.")
         self.debugLog.append("OpenCV version is " + cv.__version__)
         self.debugLog.setReadOnly(True)
         self.debugLog.setMaximumHeight(200)
@@ -86,24 +86,47 @@ class MainWidget(QtWidgets.QWidget):
         if not self.driveFullyStopped:
             self.debugLog.append("Stopping drive...")
             self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
-            print("Disconnect the battery and press Enter")
-            inp = input()
-            if inp == '':
+            msg_1 = QtWidgets.QMessageBox()
+            msg_1.setIcon(QtWidgets.QMessageBox.Warning)
+            # msg.setIconPixmap(pixmap)  # todo
+            msg_1.setWindowTitle("Critical step!")
+            msg_1.setText("Disconnect the battery.")
+            msg_1.setDetailedText("Disconnect the battery because it needs to reload ESC configuration.")
+            ok_button_1 = msg_1.addButton('Battery disconnected', QtWidgets.QMessageBox.AcceptRole)
+            msg_1.addButton('Abort calibration', QtWidgets.QMessageBox.RejectRole)
+            msg_1.exec()
+            if msg_1.clickedButton() == ok_button_1:
                 self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.maxPulseWidth)
-                print("Connect the battery.. you will here two beeps, then wait for a gradual falling tone then press Enter")
-                inp = input()
-                if inp == '':
+                msg_2 = QtWidgets.QMessageBox()
+                msg_2.setIcon(QtWidgets.QMessageBox.Warning)
+                # msg.setIconPixmap(pixmap)  # todo
+                msg_2.setWindowTitle("Critical step!")
+                msg_2.setText("Connect the battery..")
+                msg_2.setInformativeText("you will here two beeps, then wait for a gradual falling tone then press OK.")
+                ok_button_2 = msg_2.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
+                msg_2.addButton('Abort calibration', QtWidgets.QMessageBox.RejectRole)
+                msg_2.exec()
+                if msg_2.clickedButton() == ok_button_2:
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
-                    print("There should be a special tone")
+                    self.debugLog.append("There should be a special tone")
+
+                    # TODO GUI is freezing
+                    # timer = QtCore.QTimer()
+                    # loop = QtCore.QEventLoop()
+                    # timer.singleShot(12000, loop, self.debugLog.append("Please wait for it ...."))
+                    # loop.exec_()
                     time.sleep(12)
-                    print("Please wait for it ....")
+                    self.debugLog.append("Please wait for it ....")
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
                     time.sleep(2)
-                    print("Arming ESC now...")
+                    self.debugLog.append("Arming ESC now...")
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
                     time.sleep(1)
-                    print("ESC has been successfully calibrated.")
                     self.debugLog.append("ESC has been successfully calibrated. Use slider to run drive.")
+                else:
+                    self.debugLog.append("ESC calibration were canceled.")
+            else:
+                self.debugLog.append("ESC calibration were canceled.")
         else:
             self.debugLog.append("ESC and drive has been fully stopped already. Restart available only with program.")
 
