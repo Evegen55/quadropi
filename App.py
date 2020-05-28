@@ -86,34 +86,33 @@ class MainWidget(QtWidgets.QWidget):
         if not self.driveFullyStopped:
             self.debugLog.append("Stopping drive...")
             self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
-            msg_1 = QtWidgets.QMessageBox()
-            msg_1.setIcon(QtWidgets.QMessageBox.Warning)
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Warning)
             # msg.setIconPixmap(pixmap)  # todo
-            msg_1.setWindowTitle("Critical step!")
-            msg_1.setText("Disconnect the battery.")
-            msg_1.setDetailedText("Disconnect the battery because it needs to reload ESC configuration.")
-            ok_button_1 = msg_1.addButton('Battery disconnected', QtWidgets.QMessageBox.AcceptRole)
-            msg_1.addButton('Abort calibration', QtWidgets.QMessageBox.RejectRole)
-            msg_1.exec()
-            if msg_1.clickedButton() == ok_button_1:
+            msg.setWindowTitle("Critical step!")
+            msg.setText("Disconnect the battery.")
+            msg.setDetailedText("Disconnect the battery because it needs to reload ESC configuration.")
+            ok_button = msg.addButton('Battery disconnected', QtWidgets.QMessageBox.AcceptRole)
+            msg.addButton('Abort calibration', QtWidgets.QMessageBox.RejectRole)
+            msg.setMinimumWidth(200)
+            msg.exec()
+            if msg.clickedButton() == ok_button:
                 self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.maxPulseWidth)
-                msg_2 = QtWidgets.QMessageBox()
-                msg_2.setIcon(QtWidgets.QMessageBox.Warning)
                 # msg.setIconPixmap(pixmap)  # todo
-                msg_2.setWindowTitle("Critical step!")
-                msg_2.setText("Connect the battery..")
-                msg_2.setInformativeText("you will here two beeps, then wait for a gradual falling tone then press OK.")
-                ok_button_2 = msg_2.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
-                msg_2.addButton('Abort calibration', QtWidgets.QMessageBox.RejectRole)
-                msg_2.exec()
-                if msg_2.clickedButton() == ok_button_2:
+                msg.setText("Connect the battery..")
+                msg.setInformativeText("you will here two beeps, then wait for a gradual falling tone then press OK.")
+                msg.setDetailedText("")
+                msg.removeButton(ok_button)
+                ok_button = msg.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
+                msg.exec()
+                if msg.clickedButton() == ok_button:
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
                     self.debugLog.append("There should be a special tone")
 
                     # TODO GUI is freezing
                     # timer = QtCore.QTimer()
                     # loop = QtCore.QEventLoop()
-                    # timer.singleShot(12000, loop, self.debugLog.append("Please wait for it ...."))
+                    # timer.singleShot(12000, loop, loop.quit())
                     # loop.exec_()
                     time.sleep(12)
                     self.debugLog.append("Please wait for it ....")
