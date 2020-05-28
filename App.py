@@ -25,10 +25,41 @@ Either install opencv-python through pip or use your distribution provided PyQt5
 '''
 
 
+class Worker(QtCore.QRunnable):
+    '''
+    Worker thread
+
+    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
+    You can now pass in any Python function and have it executed in a separate thread.
+
+    :param callback: The function callback to run on this worker thread. Supplied args and
+                     kwargs will be passed through to the runner.
+    :type callback: function
+    :param args: Arguments to pass to the callback function
+    :param kwargs: Keywords to pass to the callback function
+    '''
+
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+
+    @QtCore.Slot()
+    def run(self):
+        '''
+        Initialise the runner function with passed args, kwargs.
+        '''
+        self.fn(*self.args, **self.kwargs)
+
+
 class MainWidget(QtWidgets.QWidget):
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
         self.setFixedSize(800, 600)
+
+        self.thread_pool = QtCore.QThreadPool()
 
         self.esc_gpio_pin = 25
         self.piHost = "192.168.0.98"  # make sure on RaspberryPi "sudo pigpiod" was being run
@@ -45,13 +76,13 @@ class MainWidget(QtWidgets.QWidget):
         self.minPulseWidth = 700
 
         self.escCalibrationButton = QtWidgets.QPushButton("Calibrate ESC")
-        self.escCalibrationButton.clicked.connect(self.calibrate)
+        self.escCalibrationButton.clicked.connect(self.calibrate_in_separate_thread)
 
         self.escSpeedControlSlider = QtWidgets.QSlider()
         self.escSpeedControlSlider.setOrientation(QtCore.Qt.Vertical)
         self.escSpeedControlSlider.setMinimum(self.minPulseWidth)  # should be 0
         self.escSpeedControlSlider.setMaximum(self.maxPulseWidth)  # should be 100
-        self.escSpeedControlSlider.valueChanged.connect(self.manageEscSpeed)
+        self.escSpeedControlSlider.valueChanged.connect(self.manage_esc_speed)
 
         self.driveFullyStopped = False
         self.escStopButton = QtWidgets.QPushButton("Stop drive forever.")
@@ -81,6 +112,10 @@ class MainWidget(QtWidgets.QWidget):
 
         self.setLayout(self.main_layout)
 
+    def calibrate_in_separate_thread(self):
+        calibration_worker = Worker(self.calibrate)
+        self.thread_pool.start(calibration_worker)
+
     # This is the auto calibration procedure of a normal ESC
     def calibrate(self):
         if not self.driveFullyStopped:
@@ -88,19 +123,17 @@ class MainWidget(QtWidgets.QWidget):
             self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
             msg = QtWidgets.QMessageBox()
             msg.setIcon(QtWidgets.QMessageBox.Warning)
-            # msg.setIconPixmap(pixmap)  # todo
+            # msg.setIconPixmap(pixmap)  # todo put image of battery
             msg.setWindowTitle("Critical step!")
             msg.setText("Disconnect the battery.")
             msg.setDetailedText("Disconnect the battery because it needs to reload ESC configuration.")
             ok_button = msg.addButton('Battery disconnected', QtWidgets.QMessageBox.AcceptRole)
             msg.addButton('Abort calibration', QtWidgets.QMessageBox.RejectRole)
-            msg.setMinimumWidth(200)
             msg.exec()
             if msg.clickedButton() == ok_button:
                 self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.maxPulseWidth)
-                # msg.setIconPixmap(pixmap)  # todo
                 msg.setText("Connect the battery..")
-                msg.setInformativeText("you will here two beeps, then wait for a gradual falling tone then press OK.")
+                msg.setInformativeText("you will hear two beeps, then wait for a gradual falling tone then press OK.")
                 msg.setDetailedText("")
                 msg.removeButton(ok_button)
                 ok_button = msg.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
@@ -108,12 +141,6 @@ class MainWidget(QtWidgets.QWidget):
                 if msg.clickedButton() == ok_button:
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
                     self.debugLog.append("There should be a special tone")
-
-                    # TODO GUI is freezing
-                    # timer = QtCore.QTimer()
-                    # loop = QtCore.QEventLoop()
-                    # timer.singleShot(12000, loop, loop.quit())
-                    # loop.exec_()
                     time.sleep(12)
                     self.debugLog.append("Please wait for it ....")
                     self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
@@ -141,7 +168,7 @@ class MainWidget(QtWidgets.QWidget):
         else:
             self.debugLog.append("ESC and drive has been fully stopped already. Restart available only with program.")
 
-    def manageEscSpeed(self):
+    def manage_esc_speed(self):
         # self.debugLog.setText(str(self.escSpeedControlSlider.value())) #debug only
         if not self.driveFullyStopped:
             self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.escSpeedControlSlider.value())
