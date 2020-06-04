@@ -120,7 +120,7 @@ class MainWidget(QtWidgets.QWidget):
     def calibrate(self):
         if not self.driveFullyStopped:
             self.debugLog.append("Stopping drive...")
-            self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
+            self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0) # calibration step 1
             msg = QtWidgets.QMessageBox()
             msg.setIcon(QtWidgets.QMessageBox.Warning)
             # msg.setIconPixmap(pixmap)  # todo put image of battery
@@ -131,7 +131,7 @@ class MainWidget(QtWidgets.QWidget):
             msg.addButton('Abort calibration', QtWidgets.QMessageBox.RejectRole)
             msg.exec()
             if msg.clickedButton() == ok_button:
-                self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.maxPulseWidth)
+                self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.maxPulseWidth)  # calibration step 2
                 msg.setText("Connect the battery..")
                 msg.setInformativeText("you will hear two beeps, then wait for a gradual falling tone then press OK.")
                 msg.setDetailedText("")
@@ -139,14 +139,16 @@ class MainWidget(QtWidgets.QWidget):
                 ok_button = msg.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
                 msg.exec()
                 if msg.clickedButton() == ok_button:
-                    self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
+                    self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)  # calibration step 3
                     self.debugLog.append("There should be a special tone")
-                    time.sleep(12)
                     self.debugLog.append("Please wait for it ....")
-                    self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)
+                    time.sleep(6)
+                    self.debugLog.append("...")
+                    time.sleep(6)
+                    self.pi.set_servo_pulsewidth(self.esc_gpio_pin, 0)  # calibration step 4
                     time.sleep(2)
                     self.debugLog.append("Arming ESC now...")
-                    self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)
+                    self.pi.set_servo_pulsewidth(self.esc_gpio_pin, self.minPulseWidth)  # calibration step 5
                     time.sleep(1)
                     self.debugLog.append("ESC has been successfully calibrated. Use slider to run drive.")
                 else:
